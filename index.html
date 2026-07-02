@@ -121,6 +121,13 @@ button.submit {
     <div id="message"></div>
   </div>
 
+  <div class="card hidden" id="sortModeSection">
+    <label>仕分けモード</label>
+    <label>
+      <input type="checkbox" id="sortMode"> ON
+    </label>
+  </div>
+
   <div class="card">
     <label>作成者</label>
     <div id="creatorGroup"></div>
@@ -194,6 +201,16 @@ function updateProducts() {
   const select = document.getElementById("product");
   select.innerHTML = "";
 
+  const sortSection = document.getElementById("sortModeSection");
+  const sortCheckbox = document.getElementById("sortMode");
+
+  if (type === "タリーシート（袋）") {
+    sortSection.classList.remove("hidden");
+  } else {
+    sortSection.classList.add("hidden");
+    sortCheckbox.checked = false;
+  }
+
   if (!type || !master[type]) return;
 
   master[type].forEach(item => {
@@ -205,7 +222,6 @@ function updateProducts() {
 
   validate();
 }
-
 function buildKeypad() {
   const keys = ["7","8","9","4","5","6","1","2","3","0","/","C"];
   const keypad = document.getElementById("keypad");
@@ -293,18 +309,29 @@ async function submitForm() {
     ? breakdownText.split("/").filter(Boolean).map(Number)
     : [];
 
+  const sortMode =
+    document.getElementById("sortMode")?.checked || false;
+
   const payload = {
     documentType,
     productName,
     total,
     breakdown,
-    creator
+    creator,
+    sortMode
   };
 
-  await fetch(GAS_URL, {
+  const res = await fetch(GAS_URL, {
     method: "POST",
     body: JSON.stringify(payload)
   });
+
+  const result = await res.json();
+
+  if (!result.success) {
+    alert(result.error || "送信に失敗しました");
+    return;
+  }
 
   document.getElementById("formScreen").classList.add("hidden");
   document.getElementById("completeScreen").classList.remove("hidden");
@@ -319,3 +346,4 @@ init();
 
 </body>
 </html>
+
