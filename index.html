@@ -111,7 +111,7 @@ button.submit {
     <input id="total" class="readonly-input" type="text" readonly>
   </div>
 
-  <div class="card">
+  <div class="card" id="breakdownSection">
     <label>端数一覧</label>
     <small>25/20/15/5の形式で入力（端数が無い場合は空欄）</small>
     <input id="breakdown" class="readonly-input" type="text" readonly>
@@ -214,9 +214,10 @@ document.getElementById("allSoundMode")
 document.getElementById("product")
   .addEventListener("change", updateVisibleItems);
 
-document.getElementById("total")
-  .addEventListener("input", updateVisibleItems);  
 document.getElementById("total").onclick = () => activeInput = "total";
+document.getElementById("sortModeQuantity").onclick = () => activeInput = "sortModeQuantity";
+
+document.getElementById("sampleRemainder").onclick = () => activeInput = "sampleRemainder";
 document.getElementById("breakdown").onclick = () => activeInput = "breakdown";
 
 async function init() {
@@ -224,6 +225,7 @@ async function init() {
   buildDocumentTypes();
   buildCreators();
   buildKeypad();
+  updateVisibleItems();
 }
 
 async function loadMaster() {
@@ -263,15 +265,31 @@ function updateProducts() {
   select.innerHTML = "";
 
   const sortSection = document.getElementById("sortModeSection");
+  const allSoundSection = document.getElementById("allSoundSection");
+
   const sortCheckbox = document.getElementById("sortMode");
+  const allSoundCheckbox = document.getElementById("allSoundMode");
 
   if (type === "タリーシート（袋）") {
-    sortSection.classList.remove("hidden");
-  } else {
-    sortSection.classList.add("hidden");
-    sortCheckbox.checked = false;
-  }
 
+    sortSection.classList.remove("hidden");
+    allSoundSection.classList.add("hidden");
+
+    allSoundCheckbox.checked = false;
+
+  } else if (type === "タリーシート（豆）") {
+
+    sortSection.classList.add("hidden");
+    allSoundSection.classList.remove("hidden");
+
+    sortCheckbox.checked = false;
+
+  } else {
+
+    sortSection.classList.add("hidden");
+    allSoundSection.classList.add("hidden");
+
+  }
   if (!type || !master[type]) return;
 
   master[type].forEach(item => {
@@ -281,6 +299,7 @@ function updateProducts() {
     select.appendChild(option);
   });
 
+  updateVisibleItems();
   validate();
 }
 function buildKeypad() {
@@ -301,13 +320,26 @@ function handleKey(key) {
 
   if (key === "C") {
     input.value = "";
+
+    updateVisibleItems();
     validate();
+
     return;
   }
 
-  if (activeInput === "total" && key === "/") return;
+  if (
+      (activeInput === "total"
+      || activeInput === "sortModeQuantity"
+      || activeInput === "sampleRemainder")
+      && key === "/"
+  ){
+      return;
+  }
 
   input.value += key;
+
+  updateVisibleItems();
+
   validate();
 }
 
@@ -316,6 +348,7 @@ function validate() {
   const productName = document.getElementById("product").value;
   const total = Number(document.getElementById("total").value || 0);
   const breakdownText = document.getElementById("breakdown").value;
+  const allSound = document.getElementById("allSoundMode").checked;
   const message = document.getElementById("message");
 
   if (!type || !productName || !total) {
@@ -336,14 +369,94 @@ function validate() {
       .map(Number)
       .reduce((a,b) => a+b, 0);
   }
+  if (allSound) {
 
+    message.innerHTML = "";
+    return;
+
+  }
   if ((total - breakdownSum) % factor === 0) {
     message.innerHTML = `<div class="success">数量が一致しました</div>`;
   } else {
     message.innerHTML = `<div class="error">総数及び端数の内容を確認してください</div>`;
   }
 }
+function updateVisibleItems(){
 
+    const type =
+    document.querySelector('input[name="docType"]:checked')?.value;
+
+    const allSound =
+    document.getElementById("allSoundMode").checked;
+
+    const product =
+    document.getElementById("product").value;
+
+    const total =
+    Number(document.getElementById("total").value||0);
+
+    const breakdownCard =
+    document.getElementById("breakdownSection");
+
+    const sampleCard =
+    document.getElementById("sampleSection");
+
+    if(type!=="タリーシート（豆）"){
+
+        breakdownCard.classList.remove("hidden");
+        sampleCard.classList.add("hidden");
+        return;
+
+    }
+
+    if(!allSound){
+
+        breakdownCard.classList.remove("hidden");
+        sampleCard.classList.add("hidden");
+        return;
+
+    }
+
+    const groupA=[
+        "エクアドル",
+        "ペルー",
+        "ペルーNHS"
+    ];
+
+    const groupB=[
+        "ガーナトレーザブル",
+        "ブラジルトメアス",
+        "ベネズエラ（スルデラゴ）",
+        "ベネズエラ（BX）"
+    ];
+
+    if(groupA.includes(product)){
+
+        breakdownCard.classList.add("hidden");
+
+        if(total===362||total===363){
+
+            sampleCard.classList.add("hidden");
+
+        }else{
+
+            sampleCard.classList.remove("hidden");
+
+        }
+
+    }else if(groupB.includes(product)){
+
+        breakdownCard.classList.add("hidden");
+        sampleCard.classList.add("hidden");
+
+    }else{
+
+        breakdownCard.classList.remove("hidden");
+        sampleCard.classList.add("hidden");
+
+    }
+
+}
 async function submitForm() {
   const documentType = document.querySelector('input[name="docType"]:checked')?.value;
   const creator = document.querySelector('input[name="creator"]:checked')?.value;
@@ -366,6 +479,18 @@ async function submitForm() {
   }
 
   const breakdownText = document.getElementById("breakdown").value;
+  const sortMode =
+    document.getElementById("sortMode")?.checked || false;
+
+  const sortModeQuantity =
+    Number(document.getElementById("sortModeQuantity").value || 0);
+
+  const allSoundMode =
+    document.getElementById("allSoundMode")?.checked || false;
+
+  const sampleRemainder =
+    Number(document.getElementById("sampleRemainder").value || 0);
+  
   const breakdown = breakdownText
     ? breakdownText.split("/").filter(Boolean).map(Number)
     : [];
@@ -374,12 +499,25 @@ async function submitForm() {
     document.getElementById("sortMode")?.checked || false;
 
   const payload = {
-    documentType,
-    productName,
-    total,
-    breakdown,
-    creator,
-    sortMode
+
+      documentType,
+
+      productName,
+
+      total,
+
+      breakdown,
+
+      creator,
+
+      sortMode,
+
+      sortModeQuantity,
+
+      allSoundMode,
+
+      sampleRemainder
+
   };
 
   const res = await fetch(GAS_URL, {
