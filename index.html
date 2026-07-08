@@ -101,22 +101,6 @@ button.submit {
     <div id="documentTypeGroup"></div>
   </div>
 
-  <div class="card">
-    <label>品名</label>
-    <select id="product"></select>
-  </div>
-
-  <div class="card">
-    <label>総数</label>
-    <input id="total" class="readonly-input" type="text" readonly>
-  </div>
-
-  <div class="card" id="breakdownSection">
-    <label>端数一覧</label>
-    <small>25/20/15/5の形式で入力（端数が無い場合は空欄）</small>
-    <input id="breakdown" class="readonly-input" type="text" readonly>
-  </div>
-  
   <div class="card hidden" id="allSoundSection">
 
     <label>ALL SOUNDモード</label>
@@ -135,6 +119,22 @@ button.submit {
 
   </div>
   
+  <div class="card">
+    <label>品名</label>
+    <select id="product"></select>
+  </div>
+
+  <div class="card">
+    <label>総数</label>
+    <input id="total" class="readonly-input" type="text" readonly>
+  </div>
+
+  <div class="card" id="breakdownSection">
+    <label>端数一覧</label>
+    <small>25/20/15/5の形式で入力（端数が無い場合は空欄）</small>
+    <input id="breakdown" class="readonly-input" type="text" readonly>
+  </div>
+  
   <div class="card hidden" id="sampleSection">
 
   <label>
@@ -149,8 +149,8 @@ button.submit {
 
   </div>
 
-  <div class="card">
-    <div id="message"></div>
+  <div class="card" id="messageSection">
+      <div id="message"></div>
   </div>
 
   <div class="card hidden" id="sortModeSection">
@@ -401,6 +401,9 @@ function updateVisibleItems(){
     const sampleCard =
     document.getElementById("sampleSection");
 
+    const messageCard =
+    document.getElementById("messageSection");
+
     if(type!=="タリーシート（豆）"){
 
         breakdownCard.classList.remove("hidden");
@@ -413,6 +416,7 @@ function updateVisibleItems(){
 
         breakdownCard.classList.remove("hidden");
         sampleCard.classList.add("hidden");
+        messageCard.classList.remove("hidden");
         return;
 
     }
@@ -433,6 +437,7 @@ function updateVisibleItems(){
     if(groupA.includes(product)){
 
         breakdownCard.classList.add("hidden");
+        messageCard.classList.add("hidden");
 
         if(total===362||total===363){
 
@@ -448,11 +453,13 @@ function updateVisibleItems(){
 
         breakdownCard.classList.add("hidden");
         sampleCard.classList.add("hidden");
+        messageCard.classList.add("hidden");
 
     }else{
 
         breakdownCard.classList.remove("hidden");
         sampleCard.classList.add("hidden");
+        messageCard.classList.add("hidden");
 
     }
 
