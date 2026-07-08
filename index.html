@@ -495,9 +495,6 @@ async function submitForm() {
     ? breakdownText.split("/").filter(Boolean).map(Number)
     : [];
 
-  const sortMode =
-    document.getElementById("sortMode")?.checked || false;
-
   const payload = {
 
       documentType,
