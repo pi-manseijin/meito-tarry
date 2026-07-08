@@ -116,6 +116,38 @@ button.submit {
     <small>25/20/15/5の形式で入力（端数が無い場合は空欄）</small>
     <input id="breakdown" class="readonly-input" type="text" readonly>
   </div>
+  
+  <div class="card hidden" id="allSoundSection">
+
+    <label>ALL SOUNDモード</label>
+
+    <label>
+      <input type="checkbox" id="allSoundMode">
+      ON
+    </label>
+
+    <small>
+  ①書類通りの入庫数<br>
+  ②MS番号が1つのとき<br>
+  ③MS番号の数とコンテナの数が一致するとき<br>
+  →①＆② または ①＆③
+    </small>
+
+  </div>
+  
+  <div class="card hidden" id="sampleSection">
+
+  <label>
+  サンプル用5BAG取得のコンテナの端数
+  </label>
+
+  <input
+  id="sampleRemainder"
+  class="readonly-input"
+  type="text"
+  readonly>
+
+  </div>
 
   <div class="card">
     <div id="message"></div>
@@ -123,9 +155,24 @@ button.submit {
 
   <div class="card hidden" id="sortModeSection">
     <label>仕分けモード</label>
-    <label>
-      <input type="checkbox" id="sortMode"> ON
-    </label>
+
+    <div style="display:flex;align-items:center;gap:12px;">
+
+      <label style="margin:0;">
+        <input type="checkbox" id="sortMode">
+        ON
+      </label>
+
+      <input
+        id="sortModeQuantity"
+        class="readonly-input"
+        type="text"
+        readonly
+        placeholder="数量"
+        style="width:120px;"
+      >
+
+    </div>
   </div>
 
   <div class="card">
@@ -155,6 +202,20 @@ let master = {};
 let creators = [];
 let activeInput = "total";
 
+document.getElementById("sortModeQuantity").onclick = () =>
+  activeInput = "sortModeQuantity";
+
+document.getElementById("sampleRemainder").onclick = () =>
+  activeInput = "sampleRemainder";
+
+document.getElementById("allSoundMode")
+  .addEventListener("change", updateVisibleItems);
+
+document.getElementById("product")
+  .addEventListener("change", updateVisibleItems);
+
+document.getElementById("total")
+  .addEventListener("input", updateVisibleItems);  
 document.getElementById("total").onclick = () => activeInput = "total";
 document.getElementById("breakdown").onclick = () => activeInput = "breakdown";
 
