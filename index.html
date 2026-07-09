@@ -23,6 +23,7 @@ body {
   padding: 16px;
   margin-bottom: 12px;
   border-radius: 12px;
+  position: relative; /* テンキーの挿入位置制御用 */
 }
 
 h1 {
@@ -52,19 +53,33 @@ input[type="text"], select {
   cursor: pointer;
 }
 
+/* アコーディオン表示されるテンキーエリア */
+.keypad-container {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #ddd;
+}
+
 .keypad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
-  margin-top: 12px;
 }
 
 .key {
-  padding: 20px;
+  padding: 18px;
   font-size: 22px;
   border: none;
   border-radius: 8px;
   background: #ddd;
+  cursor: pointer;
+}
+
+/* 全消し（C）ボタンのカスタムスタイル */
+.key-clear {
+  background: #f8d7da;
+  color: #dc3545;
+  font-weight: bold;
 }
 
 button.submit {
@@ -75,6 +90,7 @@ button.submit {
   color: white;
   border: none;
   border-radius: 10px;
+  margin-top: 12px;
 }
 
 #message {
@@ -102,21 +118,22 @@ button.submit {
   </div>
 
   <div class="card hidden" id="allSoundSection">
-
     <label>ALL SOUNDモード</label>
-
     <label>
       <input type="checkbox" id="allSoundMode">
       ON
     </label>
-
     <small>
   ①書類通りの入庫数<br>
-  ②MS番号が1つのとき<br>
-  ③MS番号の数とコンテナの数が一致するとき<br>
-  →①＆② または ①＆③
+  ②MS番号が1つのみ<br>
+  ③MS番号の数とコンテナの数が一致する<br>
+  →①＆② または ①＆③ の条件を満たすとき
     </small>
-
+  </div>
+  
+  <div class="card hidden" id="lotCountSection">
+    <label>Lot数</label>
+    <input id="lotCount" class="readonly-input" type="text" readonly placeholder="1">
   </div>
   
   <div class="card">
@@ -136,17 +153,9 @@ button.submit {
   </div>
   
   <div class="card hidden" id="sampleSection">
-
-  <label>
-  サンプル用5BAG取得のコンテナの端数
-  </label>
-
-  <input
-  id="sampleRemainder"
-  class="readonly-input"
-  type="text"
-  readonly>
-
+    <label>サンプル5BAG取得した方のコンテナの端数</label>
+    <small>5BAGは除いて入力</small>
+    <input id="sampleRemainder" class="readonly-input" type="text" readonly>
   </div>
 
   <div class="card" id="messageSection">
@@ -155,14 +164,11 @@ button.submit {
 
   <div class="card hidden" id="sortModeSection">
     <label>仕分けモード</label>
-
     <div style="display:flex;align-items:center;gap:12px;">
-
       <label style="margin:0;">
         <input type="checkbox" id="sortMode">
         ON
       </label>
-
       <input
         id="sortModeQuantity"
         class="readonly-input"
@@ -171,7 +177,6 @@ button.submit {
         placeholder="数量"
         style="width:120px;"
       >
-
     </div>
   </div>
 
@@ -180,9 +185,27 @@ button.submit {
     <div id="creatorGroup"></div>
   </div>
 
-  <div class="card">
-    <label>テンキー</label>
-    <div class="keypad" id="keypad"></div>
+  <div id="sharedKeypad" class="keypad-container hidden">
+    <div class="keypad">
+      <button class="key key-clear" onclick="handleKey('C')">C</button>
+      <button class="key key-clear" style="grid-column: span 2;" onclick="handleKey('C')">全てクリア</button>
+      
+      <button class="key" onclick="handleKey('7')">7</button>
+      <button class="key" onclick="handleKey('8')">8</button>
+      <button class="key" onclick="handleKey('9')">9</button>
+      
+      <button class="key" onclick="handleKey('4')">4</button>
+      <button class="key" onclick="handleKey('5')">5</button>
+      <button class="key" onclick="handleKey('6')">6</button>
+      
+      <button class="key" onclick="handleKey('1')">1</button>
+      <button class="key" onclick="handleKey('2')">2</button>
+      <button class="key" onclick="handleKey('3')">3</button>
+      
+      <button class="key" onclick="handleKey('0')">0</button>
+      <button class="key" onclick="handleKey('/')">/</button>
+      <button class="key" onclick="handleKey('BS')">⌫</button>
+    </div>
   </div>
 
   <button class="submit" onclick="submitForm()">送信</button>
@@ -200,31 +223,22 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbyk8vULKpdzEHTis41W3I5E
 
 let master = {};
 let creators = [];
-let activeInput = "total";
+let activeInput = null;
 
-document.getElementById("sortModeQuantity").onclick = () =>
-  activeInput = "sortModeQuantity";
+// 各入力欄のクリック（フォーカス）イベントの紐付け ＆ テンキー移動のトリガー
+document.getElementById("total").onclick = (e) => attachKeypad("total", e.target);
+document.getElementById("sortModeQuantity").onclick = (e) => attachKeypad("sortModeQuantity", e.target);
+document.getElementById("sampleRemainder").onclick = (e) => attachKeypad("sampleRemainder", e.target);
+document.getElementById("breakdown").onclick = (e) => attachKeypad("breakdown", e.target);
+document.getElementById("lotCount").onclick = (e) => attachKeypad("lotCount", e.target);
 
-document.getElementById("sampleRemainder").onclick = () =>
-  activeInput = "sampleRemainder";
-
-document.getElementById("allSoundMode")
-  .addEventListener("change", updateVisibleItems);
-
-document.getElementById("product")
-  .addEventListener("change", updateVisibleItems);
-
-document.getElementById("total").onclick = () => activeInput = "total";
-document.getElementById("sortModeQuantity").onclick = () => activeInput = "sortModeQuantity";
-
-document.getElementById("sampleRemainder").onclick = () => activeInput = "sampleRemainder";
-document.getElementById("breakdown").onclick = () => activeInput = "breakdown";
+document.getElementById("allSoundMode").addEventListener("change", updateVisibleItems);
+document.getElementById("product").addEventListener("change", updateVisibleItems);
 
 async function init() {
   await loadMaster();
   buildDocumentTypes();
   buildCreators();
-  buildKeypad();
   updateVisibleItems();
 }
 
@@ -266,30 +280,26 @@ function updateProducts() {
 
   const sortSection = document.getElementById("sortModeSection");
   const allSoundSection = document.getElementById("allSoundSection");
+  const lotCountSection = document.getElementById("lotCountSection");
 
   const sortCheckbox = document.getElementById("sortMode");
   const allSoundCheckbox = document.getElementById("allSoundMode");
 
   if (type === "タリーシート（袋）") {
-
     sortSection.classList.remove("hidden");
     allSoundSection.classList.add("hidden");
-
+    lotCountSection.classList.add("hidden");
     allSoundCheckbox.checked = false;
-
   } else if (type === "タリーシート（豆）") {
-
     sortSection.classList.add("hidden");
     allSoundSection.classList.remove("hidden");
-
     sortCheckbox.checked = false;
-
   } else {
-
     sortSection.classList.add("hidden");
     allSoundSection.classList.add("hidden");
-
+    lotCountSection.classList.add("hidden");
   }
+  
   if (!type || !master[type]) return;
 
   master[type].forEach(item => {
@@ -299,47 +309,67 @@ function updateProducts() {
     select.appendChild(option);
   });
 
+  // 種類が変わったらテンキーを一旦非表示に退避
+  hideKeypad();
   updateVisibleItems();
   validate();
 }
-function buildKeypad() {
-  const keys = ["7","8","9","4","5","6","1","2","3","0","/","C"];
-  const keypad = document.getElementById("keypad");
 
-  keys.forEach(key => {
-    const btn = document.createElement("button");
-    btn.className = "key";
-    btn.textContent = key;
-    btn.onclick = () => handleKey(key);
-    keypad.appendChild(btn);
-  });
+/**
+ * 選択された入力項目の直下にテンキーを移動して表示する関数 (案A)
+ */
+function attachKeypad(inputId, inputElement) {
+  activeInput = inputId;
+  const keypad = document.getElementById("sharedKeypad");
+  
+  // 親の .card 要素を取得して、その中にテンキーを移動させる
+  const card = inputElement.closest(".card");
+  if (card) {
+    card.appendChild(keypad);
+    keypad.classList.remove("hidden");
+  }
+}
+
+function hideKeypad() {
+  const keypad = document.getElementById("sharedKeypad");
+  keypad.classList.add("hidden");
+  document.body.appendChild(keypad); // 共通の退避場所に置く
+  activeInput = null;
 }
 
 function handleKey(key) {
+  if (!activeInput) return;
   const input = document.getElementById(activeInput);
 
+  // 全消去
   if (key === "C") {
     input.value = "";
-
     updateVisibleItems();
     validate();
-
     return;
   }
 
+  // 1文字消去（バックスペース）
+  if (key === "BS") {
+    input.value = input.value.slice(0, -1);
+    updateVisibleItems();
+    validate();
+    return;
+  }
+
+  // スラッシュ「/」入力を制限する項目リスト
   if (
       (activeInput === "total"
       || activeInput === "sortModeQuantity"
-      || activeInput === "sampleRemainder")
+      || activeInput === "sampleRemainder"
+      || activeInput === "lotCount")
       && key === "/"
   ){
       return;
   }
 
   input.value += key;
-
   updateVisibleItems();
-
   validate();
 }
 
@@ -370,56 +400,44 @@ function validate() {
       .reduce((a,b) => a+b, 0);
   }
   if (allSound) {
-
     message.innerHTML = "";
     return;
-
   }
   if ((total - breakdownSum) % factor === 0) {
-    message.innerHTML = `<div class="success">数量が一致しました</div>`;
+    message.innerHTML = `<div class="success">タリーシートを作成できます</div>`;
   } else {
-    message.innerHTML = `<div class="error">総数及び端数の内容を確認してください</div>`;
+    message.innerHTML = `<div class="error">この総数及び端数の内容ではタリーシートを作成できません</div>`;
   }
 }
+
 function updateVisibleItems(){
+    const type = document.querySelector('input[name="docType"]:checked')?.value;
+    const allSound = document.getElementById("allSoundMode").checked;
+    const product = document.getElementById("product").value;
+    const total = Number(document.getElementById("total").value||0);
 
-    const type =
-    document.querySelector('input[name="docType"]:checked')?.value;
-
-    const allSound =
-    document.getElementById("allSoundMode").checked;
-
-    const product =
-    document.getElementById("product").value;
-
-    const total =
-    Number(document.getElementById("total").value||0);
-
-    const breakdownCard =
-    document.getElementById("breakdownSection");
-
-    const sampleCard =
-    document.getElementById("sampleSection");
-
-    const messageCard =
-    document.getElementById("messageSection");
+    const breakdownCard = document.getElementById("breakdownSection");
+    const sampleCard = document.getElementById("sampleSection");
+    const messageCard = document.getElementById("messageSection");
+    const lotCountCard = document.getElementById("lotCountSection");
 
     if(type!=="タリーシート（豆）"){
-
         breakdownCard.classList.remove("hidden");
         sampleCard.classList.add("hidden");
+        lotCountCard.classList.add("hidden");
         return;
-
     }
 
     if(!allSound){
-
         breakdownCard.classList.remove("hidden");
         sampleCard.classList.add("hidden");
+        lotCountCard.classList.add("hidden");
         messageCard.classList.remove("hidden");
         return;
-
     }
+
+    // ALL SOUNDモードがONの時、Lot数項目を常に出す
+    lotCountCard.classList.remove("hidden");
 
     const groupA=[
         "エクアドル",
@@ -435,35 +453,35 @@ function updateVisibleItems(){
     ];
 
     if(groupA.includes(product)){
-
         breakdownCard.classList.add("hidden");
         messageCard.classList.add("hidden");
 
-        if(total===362||total===363){
-
-            sampleCard.classList.add("hidden");
-
-        }else{
-
-            sampleCard.classList.remove("hidden");
-
+        // 【改善点①】マスタのE列から逆引きして、362/363等の一致判定を動的に行う
+        const currentMaster = master[type]?.find(p => p.name === product);
+        let isMatchContainerPattern = false;
+        if (currentMaster && currentMaster.container) {
+            const patterns = String(currentMaster.container).split("/").map(Number);
+            isMatchContainerPattern = patterns.includes(total);
         }
 
-    }else if(groupB.includes(product)){
+        if(isMatchContainerPattern){
+            sampleCard.classList.add("hidden");
+        }else{
+            sampleCard.classList.remove("hidden");
+        }
 
+    } else if(groupB.includes(product)){
         breakdownCard.classList.add("hidden");
         sampleCard.classList.add("hidden");
         messageCard.classList.add("hidden");
 
-    }else{
-
+    } else {
         breakdownCard.classList.remove("hidden");
         sampleCard.classList.add("hidden");
         messageCard.classList.add("hidden");
-
     }
-
 }
+
 async function submitForm() {
   const documentType = document.querySelector('input[name="docType"]:checked')?.value;
   const creator = document.querySelector('input[name="creator"]:checked')?.value;
@@ -486,42 +504,29 @@ async function submitForm() {
   }
 
   const breakdownText = document.getElementById("breakdown").value;
-  const sortMode =
-    document.getElementById("sortMode")?.checked || false;
+  const sortMode = document.getElementById("sortMode")?.checked || false;
+  const sortModeQuantity = Number(document.getElementById("sortModeQuantity").value || 0);
 
-  const sortModeQuantity =
-    Number(document.getElementById("sortModeQuantity").value || 0);
-
-  const allSoundMode =
-    document.getElementById("allSoundMode")?.checked || false;
-
-  const sampleRemainder =
-    Number(document.getElementById("sampleRemainder").value || 0);
+  const allSoundMode = document.getElementById("allSoundMode")?.checked || false;
+  
+  const lotCount = Number(document.getElementById("lotCount").value || 1);
+  const sampleContainerRemainder = document.getElementById("sampleRemainder").value || "";
   
   const breakdown = breakdownText
     ? breakdownText.split("/").filter(Boolean).map(Number)
     : [];
 
   const payload = {
-
       documentType,
-
       productName,
-
       total,
-
       breakdown,
-
       creator,
-
       sortMode,
-
       sortModeQuantity,
-
       allSoundMode,
-
-      sampleRemainder
-
+      lotCount,
+      sampleContainerRemainder
   };
 
   const res = await fetch(GAS_URL, {
@@ -549,4 +554,3 @@ init();
 
 </body>
 </html>
-
