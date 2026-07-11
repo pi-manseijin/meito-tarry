@@ -131,7 +131,16 @@ button.submit {
   
   <div class="card hidden" id="lotCountSection">
     <label>Lot数</label>
-    <input id="lotCount" class="readonly-input" type="text" readonly placeholder="1">
+    <select id="lotCount">
+      <option value="1" selected>1</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+      <option value="6">6</option>
+      <option value="7">7</option>
+      <option value="8">8</option>
+    </select>
   </div>
   
   <div class="card">
@@ -228,7 +237,7 @@ document.getElementById("sortModeQuantity").onclick = (e) => attachKeypad("sortM
 document.getElementById("sampleRemainder").onclick = (e) => attachKeypad("sampleRemainder", e.target);
 document.getElementById("breakdown").onclick = (e) => attachKeypad("breakdown", e.target);
 document.getElementById("lotCount").onclick = (e) => attachKeypad("lotCount", e.target);
-
+document.getElementById("lotCount").addEventListener("change", updateVisibleItems);
 document.getElementById("allSoundMode").addEventListener("change", updateVisibleItems);
 document.getElementById("product").addEventListener("change", updateVisibleItems);
 
@@ -533,12 +542,14 @@ function updateVisibleItems(){
     const allSound = document.getElementById("allSoundMode").checked;
     const product = document.getElementById("product").value;
     const total = Number(document.getElementById("total").value||0);
+    const lotCountInput = Number(document.getElementById("lotCount").value || 1); // 追加：現在のLot数
 
     const breakdownCard = document.getElementById("breakdownSection");
     const sampleCard = document.getElementById("sampleSection");
     const messageCard = document.getElementById("messageSection");
     const lotCountCard = document.getElementById("lotCountSection");
 
+    // タリーシート（豆）以外は従来どおり（袋の処理は完璧なので絶対に触らない）
     if(type!=="タリーシート（豆）"){
         breakdownCard.classList.remove("hidden");
         sampleCard.classList.add("hidden");
@@ -546,6 +557,7 @@ function updateVisibleItems(){
         return;
     }
 
+    // ALL SOUNDモードがOFFの場合
     if(!allSound){
         breakdownCard.classList.remove("hidden");
         sampleCard.classList.add("hidden");
@@ -554,6 +566,7 @@ function updateVisibleItems(){
         return;
     }
 
+    // ALL SOUNDモードがONなら、Lot数カードは必ず表示
     lotCountCard.classList.remove("hidden");
 
     const groupA=[
@@ -574,16 +587,31 @@ function updateVisibleItems(){
         messageCard.classList.add("hidden");
 
         const currentMaster = master[type]?.find(p => p.name === product);
-        let isMatchContainerPattern = false;
+        let isOverContainerPattern = false; // 総数がマスタ1本の数値を超えている（＝複数コンテナに分割される）か
+
         if (currentMaster && currentMaster.container) {
-            const patterns = String(currentMaster.container).split("/").map(Number);
-            isMatchContainerPattern = patterns.includes(total);
+            const containerString = String(currentMaster.container);
+            if (containerString.indexOf("/") !== -1) {
+                // スラッシュがある場合（例: 362/363）
+                const patterns = containerString.split("/").map(Number);
+                // 総数が362または363の「単発（超えていない）」でなければ、超えていると判定
+                if (!patterns.includes(total)) {
+                    isOverContainerPattern = true;
+                }
+            } else {
+                // スラッシュがない単一数値の場合
+                const pattern = Number(containerString);
+                if (total > pattern) {
+                    isOverContainerPattern = true;
+                }
+            }
         }
 
-        if(isMatchContainerPattern){
-            sampleCard.classList.add("hidden");
-        }else{
+        // ★修正：Lot数が1 且つ GroupA 且つ 総数がマスタを超えた場合のみ出現
+        if(lotCountInput === 1 && isOverContainerPattern){
             sampleCard.classList.remove("hidden");
+        } else {
+            sampleCard.classList.add("hidden");
         }
 
     } else if(groupB.includes(product)){
