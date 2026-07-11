@@ -23,7 +23,7 @@ body {
   padding: 16px;
   margin-bottom: 12px;
   border-radius: 12px;
-  position: relative; /* テンキーの挿入位置制御用 */
+  position: relative;
 }
 
 h1 {
@@ -53,7 +53,6 @@ input[type="text"], select {
   cursor: pointer;
 }
 
-/* アコーディオン表示されるテンキーエリア */
 .keypad-container {
   margin-top: 12px;
   padding-top: 12px;
@@ -75,7 +74,6 @@ input[type="text"], select {
   cursor: pointer;
 }
 
-/* 全消し（C）ボタンのカスタムスタイル */
 .key-clear {
   background: #f8d7da;
   color: #dc3545;
@@ -225,7 +223,6 @@ let master = {};
 let creators = [];
 let activeInput = null;
 
-// 各入力欄のクリック（フォーカス）イベントの紐付け ＆ テンキー移動のトリガー
 document.getElementById("total").onclick = (e) => attachKeypad("total", e.target);
 document.getElementById("sortModeQuantity").onclick = (e) => attachKeypad("sortModeQuantity", e.target);
 document.getElementById("sampleRemainder").onclick = (e) => attachKeypad("sampleRemainder", e.target);
@@ -309,20 +306,14 @@ function updateProducts() {
     select.appendChild(option);
   });
 
-  // 種類が変わったらテンキーを一旦非表示に退避
   hideKeypad();
   updateVisibleItems();
   validate();
 }
 
-/**
- * 選択された入力項目の直下にテンキーを移動して表示する関数 (案A)
- */
 function attachKeypad(inputId, inputElement) {
   activeInput = inputId;
   const keypad = document.getElementById("sharedKeypad");
-  
-  // 親の .card 要素を取得して、その中にテンキーを移動させる
   const card = inputElement.closest(".card");
   if (card) {
     card.appendChild(keypad);
@@ -333,7 +324,7 @@ function attachKeypad(inputId, inputElement) {
 function hideKeypad() {
   const keypad = document.getElementById("sharedKeypad");
   keypad.classList.add("hidden");
-  document.body.appendChild(keypad); // 共通の退避場所に置く
+  document.body.appendChild(keypad);
   activeInput = null;
 }
 
@@ -341,7 +332,6 @@ function handleKey(key) {
   if (!activeInput) return;
   const input = document.getElementById(activeInput);
 
-  // 全消去
   if (key === "C") {
     input.value = "";
     updateVisibleItems();
@@ -349,7 +339,6 @@ function handleKey(key) {
     return;
   }
 
-  // 1文字消去（バックスペース）
   if (key === "BS") {
     input.value = input.value.slice(0, -1);
     updateVisibleItems();
@@ -357,7 +346,6 @@ function handleKey(key) {
     return;
   }
 
-  // スラッシュ「/」入力を制限する項目リスト
   if (
       (activeInput === "total"
       || activeInput === "sortModeQuantity"
@@ -373,12 +361,32 @@ function handleKey(key) {
   validate();
 }
 
+/**
+ * 2種類のコンテナ目標値（例: 362と363）の組み合わせで、指定された総数が構成できるかを計算し、分解した配列を返す
+ */
+function findContainerCombination(total, targetA, targetB) {
+  const maxB = Math.floor(total / targetB);
+  for (let b = 0; b <= maxB; b++) {
+    const remaining = total - (b * targetB);
+    if (remaining % targetA === 0) {
+      const a = remaining / targetA;
+      const arr = [];
+      for (let i = 0; i < a; i++) arr.push(targetA);
+      for (let i = 0; i < b; i++) arr.push(targetB);
+      return arr;
+    }
+  }
+  return null;
+}
+
 function validate() {
   const type = document.querySelector('input[name="docType"]:checked')?.value;
   const productName = document.getElementById("product").value;
   const total = Number(document.getElementById("total").value || 0);
   const breakdownText = document.getElementById("breakdown").value;
   const allSound = document.getElementById("allSoundMode").checked;
+  const lotCountInput = Number(document.getElementById("lotCount").value || 1);
+  const sampleRemainderText = document.getElementById("sampleRemainder").value;
   const message = document.getElementById("message");
 
   if (!type || !productName || !total) {
@@ -391,22 +399,132 @@ function validate() {
 
   const factor = product.factor;
 
-  let breakdownSum = 0;
-  if (breakdownText) {
-    breakdownSum = breakdownText
-      .split("/")
-      .filter(Boolean)
-      .map(Number)
-      .reduce((a,b) => a+b, 0);
-  }
-  if (allSound) {
-    message.innerHTML = "";
+  // ALL SOUNDモードがOFFの場合は従来通りの倍数チェック
+  if (!allSound) {
+    let breakdownSum = 0;
+    if (breakdownText) {
+      breakdownSum = breakdownText
+        .split("/")
+        .filter(Boolean)
+        .map(Number)
+        .reduce((a,b) => a+b, 0);
+    }
+    if ((total - breakdownSum) % factor === 0) {
+      message.innerHTML = `<div class="success">タリーシートを作成できます</div>`;
+    } else {
+      message.innerHTML = `<div class="error">この総数及び端数の内容ではタリーシートを作成できません</div>`;
+    }
     return;
   }
-  if ((total - breakdownSum) % factor === 0) {
-    message.innerHTML = `<div class="success">タリーシートを作成できます</div>`;
+
+  // --- 【ALL SOUNDモードON時の厳密な計算ロジック】 ---
+  const containerString = String(product.container || "");
+  const subtractString = String(product.subtract || "");
+
+  // 1. 総数のコンテナ自動分割判定（E列の値を超えるかチェック）
+  let containers = [];
+  if (containerString.includes("/")) {
+    // GroupA仕様（362/363など）
+    const targets = containerString.split("/").map(Number);
+    containers = findContainerCombination(total, targets[0], targets[1]);
+    if (!containers) {
+      message.innerHTML = `<div class="error">総数がコンテナ数量（${containerString}）の組み合わせと一致しません</div>`;
+      return;
+    }
   } else {
-    message.innerHTML = `<div class="error">この総数及び端数の内容ではタリーシートを作成できません</div>`;
+    // 通常品名・ベネズエラ仕様（417単体など）
+    const target = Number(containerString);
+    if (total % target === 0) {
+      const count = total / target;
+      for (let i = 0; i < count; i++) containers.push(target);
+    } else {
+      message.innerHTML = `<div class="error">総数がコンテナ数量（${target}）の倍数になっていません</div>`;
+      return;
+    }
+  }
+
+  // 2. 引算数の配列化（F列が5,5の形式か5単体か）
+  const subValues = subtractString ? subtractString.split(",").map(Number) : [];
+
+  // 品名特性の判別
+  const isVenezuela = productName.startsWith("ベネズエラ");
+  const isGroupA = containerString.includes("/");
+
+  // 3. 各コンテナに引き算を動的適用するシミュレーション
+  if (isVenezuela) {
+    // ベネズエラ専用ロジック
+    if (lotCountInput === 1) {
+      // 1Lotの場合：分割されたコンテナのうち1つだけから引算数を2回引く、もう片方は引かない
+      if (containers.length < 1) return;
+      const c1 = containers[0] - subValues.reduce((a,b)=>a+b, 0);
+      let isValid = (c1 % factor === 0);
+      for (let i = 1; i < containers.length; i++) {
+        if (containers[i] % factor !== 0) isValid = false;
+      }
+      if (isValid) {
+        message.innerHTML = `<div class="success">タリーシートを作成できます（ベネズエラ 1Lot）</div>`;
+      } else {
+        message.innerHTML = `<div class="error">計算エラー：コンテナの余りが正しくありません</div>`;
+      }
+    } else if (lotCountInput >= 2) {
+      // 2Lot以上の場合：すべてのコンテナから引算数を2回ずつ引く
+      let isValid = true;
+      const subTotal = subValues.reduce((a,b)=>a+b, 0);
+      containers.forEach(c => {
+        if ((c - subTotal) % factor !== 0) isValid = false;
+      });
+      if (isValid) {
+        message.innerHTML = `<div class="success">タリーシートを作成できます（ベネズエラ ${lotCountInput}Lot）</div>`;
+      } else {
+        message.innerHTML = `<div class="error">計算エラー：複数Lotの余りが一致しません</div>`;
+      }
+    }
+  } else if (isGroupA) {
+    // GroupA専用ロジック：サンプルコンテナ端数の入力値を用いて引き算コンテナを逆算・検証する
+    if (!sampleRemainderText) {
+      message.innerHTML = `<div class="error">サンプル5BAG取得コンテナの端数を入力してください</div>`;
+      return;
+    }
+    const enteredRemainder = Number(sampleRemainderText);
+    const subVal = subValues[0] || 0; // 通常は単体の「5」
+
+    // どちらのコンテナから引いたかを全検索してシミュレーション検証
+    let matchFound = false;
+    for (let i = 0; i < containers.length; i++) {
+      // 仮にi番目のコンテナから5を引いたと仮定
+      const testContainers = [...containers];
+      testContainers[i] = testContainers[i] - subVal;
+
+      // その時のi番目の実際の端数（余り）を計算
+      const actualRemainder = testContainers[i] % factor;
+
+      // 入力された端数と一致するかチェック
+      if (actualRemainder === enteredRemainder) {
+        // 一致した場合、他のコンテナも含めてすべてが倍数20（または本来の端数）を維持できているか検証
+        let allValid = true;
+        testContainers.forEach((c, idx) => {
+          if (idx === i) {
+            // 引いたコンテナは入力値と一致しているためクリア
+          } else {
+            // 引いていないコンテナは本来の目標値のまま。すべて端数が本来の仕様（362なら2、363なら3など）に合っているか
+            if (c % factor !== (containers[idx] % factor)) allValid = false;
+          }
+        });
+        if (allValid) {
+          matchFound = true;
+          break;
+        }
+      }
+    }
+
+    if (matchFound) {
+      message.innerHTML = `<div class="success">タリーシートを作成できます（サンプル端数検証一致）</div>`;
+    } else {
+      message.innerHTML = `<div class="error">サンプル端数の入力値が、コンテナ分割ロジックと矛盾しています</div>`;
+    }
+  } else {
+    // その他の通常品名
+    message.innerHTML = `<div class="success">タリーシートを作成できます</div>`;
   }
 }
 
@@ -436,7 +554,6 @@ function updateVisibleItems(){
         return;
     }
 
-    // ALL SOUNDモードがONの時、Lot数項目を常に出す
     lotCountCard.classList.remove("hidden");
 
     const groupA=[
@@ -456,7 +573,6 @@ function updateVisibleItems(){
         breakdownCard.classList.add("hidden");
         messageCard.classList.add("hidden");
 
-        // 【改善点①】マスタのE列から逆引きして、362/363等の一致判定を動的に行う
         const currentMaster = master[type]?.find(p => p.name === product);
         let isMatchContainerPattern = false;
         if (currentMaster && currentMaster.container) {
@@ -505,10 +621,11 @@ async function submitForm() {
 
   const breakdownText = document.getElementById("breakdown").value;
   const sortMode = document.getElementById("sortMode")?.checked || false;
-  const sortModeQuantity = Number(document.getElementById("sortModeQuantity").value || 0);
+  
+  // 【GAS側の変数名修正に対応】sortModeQuantity から sortQuantity にマッピングを変更
+  const sortQuantity = Number(document.getElementById("sortModeQuantity").value || 0);
 
   const allSoundMode = document.getElementById("allSoundMode")?.checked || false;
-  
   const lotCount = Number(document.getElementById("lotCount").value || 1);
   const sampleContainerRemainder = document.getElementById("sampleRemainder").value || "";
   
@@ -523,7 +640,7 @@ async function submitForm() {
       breakdown,
       creator,
       sortMode,
-      sortModeQuantity,
+      sortQuantity, // GASに合わせたプロパティ名
       allSoundMode,
       lotCount,
       sampleContainerRemainder
