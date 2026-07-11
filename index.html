@@ -622,8 +622,7 @@ async function submitForm() {
   const breakdownText = document.getElementById("breakdown").value;
   const sortMode = document.getElementById("sortMode")?.checked || false;
   
-  // 【GAS側の変数名修正に対応】sortModeQuantity から sortQuantity にマッピングを変更
-  const sortQuantity = Number(document.getElementById("sortModeQuantity").value || 0);
+  const sortModeQuantity = Number(document.getElementById("sortModeQuantity").value || 0);
 
   const allSoundMode = document.getElementById("allSoundMode")?.checked || false;
   const lotCount = Number(document.getElementById("lotCount").value || 1);
@@ -640,7 +639,7 @@ async function submitForm() {
       breakdown,
       creator,
       sortMode,
-      sortQuantity, // GASに合わせたプロパティ名
+      sortModeQuantity, 
       allSoundMode,
       lotCount,
       sampleContainerRemainder
