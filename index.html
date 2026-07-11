@@ -62,21 +62,32 @@ input[type="text"], select {
 .keypad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 6px; /* 隙間を少しだけ詰めました */
 }
 
 .key {
-  padding: 18px;
-  font-size: 22px;
+  padding: 12px; /* 18pxから12pxに絞り、縦幅をコンパクトに */
+  font-size: 22px; /* 文字の大きさは維持して年配の方も見やすく */
   border: none;
   border-radius: 8px;
   background: #ddd;
   cursor: pointer;
 }
 
+/* 最上段の消去・決定ボタン専用のカラー設定 */
 .key-clear {
   background: #f8d7da;
   color: #dc3545;
+  font-weight: bold;
+}
+.key-delete {
+  background: #fff3cd;
+  color: #856404;
+  font-weight: bold;
+}
+.key-close {
+  background: #d4edda;
+  color: #155724;
   font-weight: bold;
 }
 
@@ -194,9 +205,12 @@ button.submit {
 
   <div id="sharedKeypad" class="keypad-container hidden">
     <div class="keypad">
-      <button class="key key-clear" onclick="handleKey('C')">C</button>
-      <button class="key key-clear" style="grid-column: span 2;" onclick="handleKey('C')">全てクリア</button>
+      <!-- 最上段：消去系と決定を等幅で集約 -->
+      <button class="key key-clear" onclick="handleKey('C')">クリア</button>
+      <button class="key key-delete" onclick="handleKey('BS')">×</button>
+      <button class="key key-close" onclick="handleKey('CLOSE')">決定</button>
       
+      <!-- 数字キーボード -->
       <button class="key" onclick="handleKey('7')">7</button>
       <button class="key" onclick="handleKey('8')">8</button>
       <button class="key" onclick="handleKey('9')">9</button>
@@ -209,9 +223,10 @@ button.submit {
       <button class="key" onclick="handleKey('2')">2</button>
       <button class="key" onclick="handleKey('3')">3</button>
       
+      <!-- 最下段：両利き対応の / 配置 -->
+      <button class="key" onclick="handleKey('/')">/</button>
       <button class="key" onclick="handleKey('0')">0</button>
       <button class="key" onclick="handleKey('/')">/</button>
-      <button class="key" onclick="handleKey('BS')">⌫</button>
     </div>
   </div>
 
@@ -340,6 +355,13 @@ function handleKey(key) {
   if (!activeInput) return;
   const input = document.getElementById(activeInput);
 
+  // 新設：決定（閉じる）ボタンが押されたとき
+  if (key === "CLOSE") {
+    hideKeypad();
+    return;
+  }
+
+  // クリアボタン：枠内の文字をすべて消す
   if (key === "C") {
     input.value = "";
     updateVisibleItems();
@@ -347,6 +369,7 @@ function handleKey(key) {
     return;
   }
 
+  // ×ボタン：1文字だけ消去（バックスペース）
   if (key === "BS") {
     input.value = input.value.slice(0, -1);
     updateVisibleItems();
@@ -354,11 +377,11 @@ function handleKey(key) {
     return;
   }
 
+  // 総数、仕分け数量、サンプル端数に入力時、スラッシュ「/」は弾く（従来どおり）
   if (
       (activeInput === "total"
       || activeInput === "sortModeQuantity"
-      || activeInput === "sampleRemainder"
-      || activeInput === "lotCount")
+      || activeInput === "sampleRemainder")
       && key === "/"
   ){
       return;
